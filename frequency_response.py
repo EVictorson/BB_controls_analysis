@@ -11,11 +11,13 @@ from scipy.signal import kaiserord, lfilter, firwin, freqz, argrelextrema
 def get_phase_margin_lower_bound(y_arr):
 	MT = np.amax(y_arr)
 	PMlb = 2*np.arcsin(1/(2*MT))
+	print('Phase margin lower bound: {}'.format(PMlb))
 	return PMlb
 
 def get_gain_margin_lower_bound(y_arr):
 	MT = np.amax(y_arr)   # supremum of complementary sensitivity function
-	GMlb = 1 + 1/MT	    
+	GMlb = 1 + 1/MT
+	print('Gain margin lower bound: {}'.format(GMlb))	    
 	return GMlb, MT
 
 def get_local_extrema(array):
@@ -126,6 +128,9 @@ def find_bandwidth(polyfit):
 	idx = (np.abs(y-0.707)).argmin()
 	val = y[idx]
 	fval = x[idx]
+	get_phase_margin_lower_bound(y)
+	get_gain_margin_lower_bound(y)
+
 	return idx, val, fval
 
 def fix_len_to_shortest(ref, pos):
@@ -145,7 +150,7 @@ def fix_len_to_static(nonstatic_arr, static_arr):
 	if len_diff > 0:
 		nonstatic_arr = nonstatic_arr[:-len_diff]
 	else:
-		for i in range(len(len_diff)):
+		for i in range(len_diff):
 			nonstatic_arr.append(nonstatic_arr[len_nonstatic])
 
 	return nonstatic_arr, static_arr
@@ -218,7 +223,7 @@ def bode(time, pos, ref):
 
 	for i in range(len(frq)):
 		#print(frq[i])
-		if frq[i] <= 10.0:
+		if frq[i] <= 5.0:
 			#np.append(frq_trimmed, [frq[i]])
 			#np.append(H_trimmed, [H[i]])
 			frq_trimmed.append(frq[i])
@@ -274,8 +279,8 @@ def time_response(pos, ref, time):
 
 if __name__ == "__main__":
 
-#        bag_name = 'eyes_freq_resp_p3_16_0_2_gains.bag'
-	bag_name = 'joint_states
+        bag_name = 'pan_freq_resp_9_2_0_01_2_075_rad.bag'
+#	bag_name = 'joint_states
         ref = []
         vel = []
         pos = []
