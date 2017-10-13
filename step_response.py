@@ -110,7 +110,7 @@ def unloop_time(time):
 if __name__ == "__main__":
 
 
-	bag_name = 'test.bag'
+	bag_name = 'eyes_step_resp_p2_gains.bag'
 	ref = []
 	vel = []
 	pos = []
@@ -139,8 +139,20 @@ if __name__ == "__main__":
 
 	print('rise time: {}'.format(rise_time))
 	print('mean rise time: {}'.format(mean_rise_time))
+	print(len(unfucked_time))
+	print(len(pos))
 
-	plt.plot(unfucked_time, pos, 'r')
+        len_diff = len(unfucked_time) - len(pos)
+
+        # make sure input and output lengths are the same
+        if len(unfucked_time) > len(pos):
+                x = unfucked_time[:-len_diff]
+                y = pos
+        if len(pos) > len(unfucked_time):
+                x = unfucked_time
+                y = pos[:-len_diff]
+
+	plt.plot(x, y, 'r')
 	for t in t10:
 		plt.axvline(x = t)
 	for t in t90:

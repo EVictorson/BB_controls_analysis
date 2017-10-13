@@ -4,8 +4,63 @@ import rosbag
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.fftpack
-from scipy.signal import kaiserord, lfilter, firwin, freqz
+from scipy.signal import kaiserord, lfilter, firwin, freqz, argrelextrema
 
+
+def get_local_extrema(array):
+	arr = np.array(array)
+	maxima_locs = argrelextrema(arr, np.greater)
+	minima_locs = argrelextrema(arr, np.less)
+
+	print(maxima_locs[0])
+	return maxima_locs[0], minima_locs[0]
+
+def get_phase(input_maxima_locs, output_maxima_locs, ref, pos, time):
+	freq = []
+	phi = []
+
+	len_input = len(input_maxima_locs)
+	len_output = len(output_maxima_locs)
+	
+	if len_input > len_output:
+		max_array = output_maxima_locs
+	else:
+		max_array = input_maxima_locs	
+
+
+
+	for i in range(len(max_array[:len(max_array)-1])):
+		dt = float(time[input_maxima_locs[i+1]] - time[input_maxima_locs[i]])/1000000
+		print('input maxima i :{}'.format(input_maxima_locs[i]))
+		print('dt :{}'.format(1/dt))
+		freq.append(1/dt)
+		delay = float(time[input_maxima_locs[i]]/1000000 - time[output_maxima_locs[i]]/1000000)
+		phi.append((delay/dt))
+
+
+	print(len(time), len(ref))
+	print(len(time), len(pos))
+
+	# debug plot
+	for i in range(len(input_maxima_locs)):
+		plt.plot(time[input_maxima_locs[i]], ref[input_maxima_locs[i]],'-ob')
+	plt.plot(time[0:len(ref)], ref,'b')
+	for i in range(len(output_maxima_locs)):
+		plt.plot(time[output_maxima_locs[i]], pos[output_maxima_locs[i]], '-or') 
+	plt.plot(time, pos,'r')
+	plt.show()	
+
+	print(freq)
+	print(phi)
+
+	plt.plot(freq, phi)
+	plt.title('Bode Phase Plot')
+	plt.xlabel('Frequency (hz)')
+	plt.ylabel('Phase (deg)')
+	plt.show()
+
+	return freq, phi
+		
 
 def unloop_time(time):
         overflow_at = 1999969 # overflow at this many us
@@ -46,22 +101,47 @@ def FIR_filter(x, cutoff_hz):
 	
 	return filtered_x
 
-def find_bandwidth(array):
-	idx = (np.abs(array-0.7071)).argmin()
-	return idx, array[idx]
+def find_bandwidth(polyfit):
+	#idx = (np.abs(array-0.7071)).argmin()
+#	idx = array.index(min(np.abs(array-0.7071).argmin()))
 
+	x = np.linspace(0.01,20,10000)
+	y = polyfit(x)
+	idx = (np.abs(y-0.707)).argmin()
+	val = y[idx]
+	fval = x[idx]
+	return idx, val, fval
+
+def fix_len_to_shortest(ref, pos):
+        len_diff = len(ref) - len(pos)
+	if len(ref) > len(pos):
+                x = ref[:-len_diff]
+                y = pos
+        if len(pos) > len(ref):
+                x = ref
+                y = pos[:-len_diff]
+	return x, y
+
+def fix_len_to_static(nonstatic_arr, static_arr):
+	len_nonstatic = len(nonstatic_arr)
+	len_static = len(static_arr)
+	len_diff = len(nonstatic_arr) - len(static_arr)
+	if len_diff > 0:
+		nonstatic_arr = nonstatic_arr[:-len_diff]
+	else:
+		for i in range(len(len_diff)):
+			nonstatic_arr.append(nonstatic_arr[len_nonstatic])
+
+	return nonstatic_arr, static_arr
 
 def bode(time, pos, ref):
 	dt = 1/200   # sampling rate (200 hz)
-	len_diff = len(ref) - len(pos)
-	
+
 	# make sure input and output lengths are the same
-	if len(ref) > len(pos):
-		x = ref[:-len_diff]
-		y = pos
-	if len(pos) > len(ref):
-		x = ref
-		y = pos[:-len_diff]
+
+	x,y = fix_len_to_shortest(ref, pos)
+	time, y = fix_len_to_static(time, y)	
+
 	n = len(y)
 	#print('y len: {}'.format(len(y)))
 	#print('x len: {}'.format(len(x)))
@@ -131,8 +211,11 @@ def bode(time, pos, ref):
 	#print(frq_trimmed)
 	z = np.polyfit(frq_trimmed, np.abs(H_trimmed), 7)
 	poly = np.poly1d(z)
-	arr, idx = find_bandwidth(poly)
-	print('Bandwidth: {}'.format(idx))
+	#print(poly)
+	idx, val, fval = find_bandwidth(poly)
+	#print(idx, val, fval)
+	bandwidth = fval
+	print('Bandwidth: {}'.format(bandwidth))
 
 	plt.figure(1)
         plt.loglog(frq, np.abs(H), '-ob')
@@ -144,9 +227,17 @@ def bode(time, pos, ref):
 	plt.xlabel('Frequency (Hz)')
 	plt.ylabel('Magnitude')
 	plt.plot(frq_trimmed, poly(frq_trimmed), 'r')
-	plt.text(0.1, 10, 'Bandwidth = {}'.format(idx))
+	plt.text(0.1, 10, 'Bandwidth = {}'.format(bandwidth))
 	plt.show()
 
+
+
+	########### BODE PHASE PLOT
+	input_maxima, input_minima = get_local_extrema(ref)
+	print('len input maxima: {}'.format(len(input_maxima)))
+	print(input_maxima)
+	output_maxima, output_minima = get_local_extrema(pos)
+	get_phase(input_maxima, output_maxima,x, y, time)
 
 	# in order to get the phase plot I will have to collect data at discrete
 	# frequencies, and for each calculate the phase shift relative to the reference
@@ -167,7 +258,7 @@ def time_response(pos, ref, time):
 
 if __name__ == "__main__":
 
-        bag_name = 'freq_test5.bag'
+        bag_name = 'eyes_freq_resp_p3_16_0_2_gains.bag'
         ref = []
         vel = []
         pos = []
@@ -193,4 +284,4 @@ if __name__ == "__main__":
 	
 	pos = FIR_filter(pos,20)
 	ref = FIR_filter(ref,20)
-	time_response(pos,ref, unfucked_time)
+	#time_response(pos,ref, unfucked_time)
