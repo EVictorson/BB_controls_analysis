@@ -4,18 +4,34 @@ import rosbag
 import matplotlib.pyplot as plt
 import numpy as np
 import scipy.fftpack
+from scipy import signal
 from scipy.signal import kaiserord, lfilter, firwin, freqz, argrelextrema
 
+
+def get_phase_margin_lower_bound(y_arr):
+	MT = np.amax(y_arr)
+	PMlb = 2*np.arcsin(1/(2*MT))
+	return PMlb
+
+def get_gain_margin_lower_bound(y_arr):
+	MT = np.amax(y_arr)   # supremum of complementary sensitivity function
+	GMlb = 1 + 1/MT	    
+	return GMlb, MT
 
 def get_local_extrema(array):
 	arr = np.array(array)
 	maxima_locs = argrelextrema(arr, np.greater)
 	minima_locs = argrelextrema(arr, np.less)
 
+	peakidx = signal.find_peaks_cwt(arr, np.arange(100,200))
+	print('peakidxs: {}'.format(peakidx))
+	print(arr[peakidx])
+
 	print(maxima_locs[0])
 	return maxima_locs[0], minima_locs[0]
 
 def get_phase(input_maxima_locs, output_maxima_locs, ref, pos, time):
+	
 	freq = []
 	phi = []
 
@@ -258,7 +274,8 @@ def time_response(pos, ref, time):
 
 if __name__ == "__main__":
 
-        bag_name = 'eyes_freq_resp_p3_16_0_2_gains.bag'
+#        bag_name = 'eyes_freq_resp_p3_16_0_2_gains.bag'
+	bag_name = 'joint_states
         ref = []
         vel = []
         pos = []
